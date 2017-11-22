@@ -37,6 +37,20 @@ void vga_set_attr(uint8_t attr);
 void vga_print_string(const char* str);
 
 /**
+ * Print unsigned 8 integer to VGA.
+ *
+ * @param v unsigned 8 integer value
+ */
+void vga_print_u8(uint8_t v);
+
+/**
+ * Print unsigned 16 integer to VGA.
+ *
+ * @param v unsigned 16 integer value
+ */
+void vga_print_u16(uint16_t v);
+
+/**
  * Print unsigned 32 integer to VGA.
  *
  * @param v unsigned 32 integer value

@@ -46,6 +46,28 @@ void vga_print_string(const char* str) {
 	vga_set_cursor((uint16_t)(((uint32_t)vga_cursor - 0xb8000) / 2));
 }
 
+void vga_print_u8(uint8_t v) {
+	*vga_cursor++ = HEX(v >> 4);
+	*vga_cursor++ = vga_attr;
+	*vga_cursor++ = HEX(v >> 0);
+	*vga_cursor++ = vga_attr;
+
+	vga_set_cursor((uint16_t)(((uint32_t)vga_cursor - 0xb8000) / 2));
+}
+
+void vga_print_u16(uint16_t v) {
+	*vga_cursor++ = HEX(v >> 12);
+	*vga_cursor++ = vga_attr;
+	*vga_cursor++ = HEX(v >> 8);
+	*vga_cursor++ = vga_attr;
+	*vga_cursor++ = HEX(v >> 4);
+	*vga_cursor++ = vga_attr;
+	*vga_cursor++ = HEX(v >> 0);
+	*vga_cursor++ = vga_attr;
+
+	vga_set_cursor((uint16_t)(((uint32_t)vga_cursor - 0xb8000) / 2));
+}
+
 void vga_print_u32(uint32_t v) {
 	*vga_cursor++ = HEX(v >> 28);
 	*vga_cursor++ = vga_attr;
