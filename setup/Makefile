@@ -10,7 +10,7 @@ obj/%.o: src/%.c
 	mkdir -p obj
 	gcc -m32 -c $^ -o $@
 
-setup.elf: obj/entry.o obj/main.o obj/vga.o
+setup.elf: obj/entry.o obj/main.o obj/vga.o obj/pit.o obj/apic.o
 	ld -m elf_i386 -T link.ld -o $@ $^
 
 clean:

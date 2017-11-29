@@ -2,6 +2,8 @@
 #include "multiboot2.h"
 #include "vga.h"
 #include "page.h"
+#include "pit.h"
+#include "apic.h"
 
 void __stack_chk_fail() {
 	vga_set_attr((0x04 | 0x08));
@@ -10,6 +12,19 @@ void __stack_chk_fail() {
 	while(1) {
 		asm("hlt");
 	}
+}
+
+static void cpuid(uint32_t* a, uint32_t* b, uint32_t* c, uint32_t* d) {
+	asm volatile("cpuid"
+		: "=a"(*a), "=b"(*b), "=c"(*c), "=d"(*d)
+		: "a"(*a), "c"(*c));
+}
+
+static uint8_t get_apic_id() {
+	uint32_t a = 0x01, b, c, d;
+	cpuid(&a, &b, &c, &d);
+
+	return (b >> 24) & 0xff;
 }
 
 static void pass() {
@@ -26,6 +41,7 @@ static void fail() {
 	vga_set_attr(VGA_NORMAL);
 
 	while(1) {
+		asm volatile("movl %0, %%eax" : : "r"(0xdeadbeef));
 		asm("hlt");
 	}
 }
@@ -183,12 +199,6 @@ static void check_cpuid() {
 	} else {
 		fail();
 	}
-}
-
-static void cpuid(uint32_t* a, uint32_t* b, uint32_t* c, uint32_t* d) {
-	asm volatile("cpuid"
-		: "=a"(*a), "=b"(*b), "=c"(*c), "=d"(*d)
-		: "a"(*a), "c"(*c));
 }
 
 static void check_longmode() {
@@ -395,19 +405,66 @@ static void activate_paging(uint8_t apic_id) {
 	}
 }
 
-void main(uint32_t magic, uint32_t addr) {
-	vga_init();
-	vga_print_string("PacketNgin ver 4.0\n\n");
+static void activate_aps() {
+	vga_print_string("Activate application processors: ");
 
-	check_multiboot(magic, addr);
-	check_cpuid();
-	check_longmode();
-	load_gdt(0);
-	activate_pae(0);
-	init_page_tables(0);
-	activate_pml4(0);
-	activate_longmode(0);
-	activate_paging(0);
+	vga_print_string(".");
+	apic_write64(APIC_REG_ICR, APIC_DSH_OTHERS |
+		APIC_TM_LEVEL |
+		APIC_LV_ASSERT |
+		APIC_DM_PHYSICAL |
+		APIC_DMODE_INIT);
+
+	// Wait maximum 10ms
+	for(int i = 0; i < 1000; i++) {
+		pit_uwait(10);
+		if(!(apic_read32(APIC_REG_ICR) & APIC_DS_PENDING))
+			break;
+	}
+
+	if(apic_read32(APIC_REG_ICR) & APIC_DS_PENDING) {
+		vga_print_string("\n\tFirst INIT IPI is pending");
+		fail();
+	}
+
+	vga_print_string(".");
+
+	apic_write64(APIC_REG_ICR, APIC_DSH_OTHERS |
+		APIC_TM_EDGE |
+		APIC_LV_ASSERT |
+		APIC_DM_PHYSICAL |
+		APIC_DMODE_STARTUP |
+		0x10);   // Startup address: 0x10 = 0x10000 / 4KB
+
+	pass();
+}
+
+void main(uint32_t magic, uint32_t addr) {
+	uint8_t apic_id = get_apic_id();
+
+	if(apic_id == 0) {
+		vga_init();
+		vga_print_string("PacketNgin ver 4.0\n\n");
+
+		check_multiboot(magic, addr);
+		check_cpuid();
+		check_longmode();
+		load_gdt(apic_id);
+		activate_pae(apic_id);
+		init_page_tables(apic_id);
+		activate_pml4(apic_id);
+		activate_longmode(apic_id);
+		activate_paging(apic_id);
+
+		apic_init();
+		activate_aps();
+	} else {
+		activate_pae(apic_id);
+		init_page_tables(apic_id);
+		activate_pml4(apic_id);
+		activate_longmode(apic_id);
+		activate_paging(apic_id);
+	}
 
 	return;
 }

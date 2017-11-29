@@ -23,10 +23,10 @@ disk.img: scripts/grub.cfg setup kernel
 	sudo losetup -D
 
 run: disk.img
-	qemu-system-x86_64 -hda disk.img
+	qemu-system-x86_64 -hda disk.img -smp 4
 
 debug: disk.img
-	qemu-system-x86_64 -hda disk.img -monitor stdio
+	qemu-system-x86_64 -hda disk.img -smp 4 -monitor stdio
 
 clean:
 	make -C setup clean

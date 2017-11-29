@@ -6,8 +6,33 @@ global sgdt
 
 extern main
 
-bits 32
+%define STACK_SIZE	256
+%define CORE_COUNT	16
+
+bits 16
 section .text
+	mov ecx, cr0
+	and ecx, 1
+	jnz start
+
+	mov	ax, 0x1000
+	mov	ds, ax
+	mov	es, ax
+
+	cli
+	; Load GDTR symbol address by real mode addressing
+	; cs register is 0x1000 now, so we have to subtract 0x10000
+	lgdt	[dword gdtr - 0x10000]
+
+	; Change to protected mode
+	mov	eax, cr0
+	or	eax, 1				; PE=1
+	mov	cr0, eax
+
+	; Far jump to protected mode symbol by linear addressing
+	jmp	dword 0x18:protectedmode
+
+bits 32
 	; multiboot2
 	align 8, db 0
 multiboot_head:
@@ -36,14 +61,43 @@ multiboot_head:
 	.end_end:
 multiboot_tail:
 
+protectedmode:
+	mov	ax, 0x20
+	mov	ds, ax
+	mov	es, ax
+	mov	fs, ax
+	mov	gs, ax
+	mov	ss, ax
+
+	jmp	dword 0x18:start
+
 start:
-	cli
+	mov	[stack], eax
+	mov	[stack + 4], ebx
+
+	mov	eax, 0x01
+	cpuid
+	shrd ebx, ebx, 24 ;cpuid
+	and	ebx, 0x000000ff
 	mov	esp, stack
+
+repeat:
+	cmp	ebx, 0
+	je	next
+
+	sub	esp, STACK_SIZE
+
+	sub	ebx, 1
+	jmp	repeat
+
+next:
+	mov	eax, [stack]
+	mov	ebx, [stack + 4]
 	push ebx
 	push eax
 	call main
 
-	jmp 0x08:0x200000
+	jmp 0x08:0x200000	; Jump to 64bit kernel
 
 lgdt:
 	mov		eax, gdtr
@@ -113,6 +167,6 @@ gdt:
 gdtend:
 
 section .bss
-	resb 8192	; 8KB
+resb STACK_SIZE * CORE_COUNT
 stack:
 
