@@ -15,7 +15,7 @@ disk.img: scripts/grub.cfg setup kernel
 	sudo losetup /dev/loop1 disk.img -o 1048576
 	sudo mkfs.ext2 /dev/loop1
 	sudo mount /dev/loop1 /mnt
-	sudo grub-install --root-directory=/mnt --modules="normal ext2 multiboot2 part_msdos" /dev/loop0
+	sudo grub-install --root-directory=/mnt --target=i386-pc --modules="normal ext2 multiboot2 part_msdos" /dev/loop0
 	sudo cp scripts/grub.cfg /mnt/boot/grub
 	sudo cp setup/setup.elf /mnt/boot
 	sudo cp kernel/kernel.bin /mnt/boot
